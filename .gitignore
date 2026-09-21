@@ -1,0 +1,30 @@
+# ── Dependencies & Build ──────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+coverage/
+.turbo/
+
+# ── Environment & Secrets ─────────────────────────────────────────────────────
+.env*
+!.env.example
+
+# ── OS Artifacts ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
+
+# ── Root-level design reference files (not part of app source) ───────────────
+*.mp4
+*.zip
+*.png
+*.jpg
+*.jpeg
+!public/**
+!app/**
+!app/components/**
+
+# ── Scripts with credentials (kept sanitized in repo, raw versions excluded) ──
+scripts/run_schema.js
+scripts/bootstrap_schema.js
+scripts/e2e_test.js

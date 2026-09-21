@@ -1,0 +1,6 @@
+{
+  "name": "AI Real Estate Hero Layout",
+  "description": "An elegant typography-focused hero section layout for real estate AI sales automation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

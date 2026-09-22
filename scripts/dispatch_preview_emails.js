@@ -1,36 +1,29 @@
-export interface SendWaitlistEmailParams {
-  email: string;
-  firstName?: string | null;
-}
+// Dispatches all 3 TerraFlow email templates to terraflow78@gmail.com via Resend API
+const fs = require('fs');
+const path = require('path');
 
-export interface SendContactNotificationParams {
-  email: string;
-  company?: string | null;
-  message?: string | null;
-  source?: string;
-  timestamp?: string;
+// Read .env.local for RESEND_API_KEY
+const envPath = path.join(__dirname, '..', '.env.local');
+const envContent = fs.readFileSync(envPath, 'utf8');
+let apiKey = '';
+for (const line of envContent.split('\n')) {
+  if (line.startsWith('RESEND_API_KEY=')) {
+    apiKey = line.split('=')[1].trim();
+  }
 }
-
-export interface SendContactVisitorParams {
-  email: string;
-  company?: string | null;
-  message?: string | null;
+if (!apiKey) {
+  apiKey = process.env.RESEND_API_KEY || '';
+}
+if (!apiKey) {
+  console.error('Error: RESEND_API_KEY not found in .env.local or environment');
+  process.exit(1);
 }
 
 const CDN_BASE = 'https://raw.githubusercontent.com/ShamanthKU/terraflow-landing-page/main/public';
 const BANNER_GIF_URL = `${CDN_BASE}/images/terraflow-email-banner.gif`;
 
-/**
- * TEMPLATE 1: Private Beta Waitlist Confirmation (WHITE THEME)
- * Recipient: Visitor joining waitlist
- * Aesthetic: Crisp luxury architectural white, deep forest typography, emerald status badge
- */
-export function renderWaitlistConfirmationHtml({
-  email,
-  firstName,
-}: SendWaitlistEmailParams): string {
+function renderWaitlistConfirmationHtml({ email, firstName }) {
   const greeting = firstName ? `Hi ${firstName},` : 'Hi there,';
-  
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -177,16 +170,7 @@ export function renderWaitlistConfirmationHtml({
 </html>`;
 }
 
-/**
- * TEMPLATE 2: Consultation & Architecture Inquiry Receipt (WHITE THEME)
- * Recipient: High-intent visitor who filled ACT VI Conversation form
- * Aesthetic: Crisp luxury architectural white, tailored summary of submitted parameters, 24h SLA guarantee
- */
-export function renderContactVisitorConfirmationHtml({
-  email,
-  company,
-  message,
-}: SendContactVisitorParams): string {
+function renderContactVisitorConfirmationHtml({ email, company, message }) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -318,18 +302,7 @@ export function renderContactVisitorConfirmationHtml({
 </html>`;
 }
 
-/**
- * TEMPLATE 3: High-Value Inbound Team Notification (DARK THEME)
- * Recipient: Internal TerraFlow Team
- * Aesthetic: Obsidian black (#080A0F), glowing emerald (#2DD4BF), structured lead matrix, direct action button
- */
-export function renderContactNotificationHtml({
-  email,
-  company,
-  message,
-  source = 'website-act-vi-conversation',
-  timestamp = new Date().toISOString(),
-}: SendContactNotificationParams): string {
+function renderContactNotificationHtml({ email, company, message, source, timestamp }) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -465,124 +438,78 @@ export function renderContactNotificationHtml({
 </html>`;
 }
 
-/**
- * Dispatches Template 1: Waitlist Confirmation (White Theme)
- */
-export async function sendWaitlistConfirmationEmail({
-  email,
-  firstName,
-}: SendWaitlistEmailParams): Promise<{ success: boolean; error?: string }> {
-  const resendApiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL || 'Terraflow <onboarding@resend.dev>';
-
-  if (!resendApiKey) {
-    console.log(`[Terraflow Email Mock] RESEND_API_KEY not set. Simulated waitlist email to ${email}`);
-    return { success: true };
-  }
-
-  try {
-    const { Resend } = await import('resend');
-    const resend = new Resend(resendApiKey);
-
-    const { error } = await resend.emails.send({
-      from: fromEmail,
-      to: [email],
-      subject: "You're on the TerraFlow waitlist 🌱",
-      html: renderWaitlistConfirmationHtml({ email, firstName }),
-    });
-
-    if (error) {
-      console.error('[Terraflow Email] Resend error:', error);
-      return { success: false, error: error.message };
-    }
-
-    return { success: true };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Unknown email error';
-    console.error('[Terraflow Email] Exception:', msg);
-    return { success: false, error: msg };
-  }
+async function sendEmail({ to, subject, html }) {
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + apiKey,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      from: 'Terraflow <onboarding@resend.dev>',
+      to: [to],
+      subject,
+      html
+    })
+  });
+  const data = await res.json();
+  return { status: res.status, data };
 }
 
-/**
- * Dispatches Template 2: Consultation & Architecture Inquiry Receipt (White Theme)
- */
-export async function sendContactVisitorConfirmationEmail({
-  email,
-  company,
-  message,
-}: SendContactVisitorParams): Promise<{ success: boolean; error?: string }> {
-  const resendApiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL || 'Terraflow <onboarding@resend.dev>';
+async function main() {
+  const targetEmail = 'terraflow78@gmail.com';
+  console.log(`\n========================================`);
+  console.log(`DISPATCHING ALL 3 TEMPLATES TO: ${targetEmail}`);
+  console.log(`========================================\n`);
 
-  if (!resendApiKey) {
-    console.log(`[Terraflow Email Mock] RESEND_API_KEY not set. Simulated visitor confirmation to ${email}`);
-    return { success: true };
-  }
+  // 1. Template 1 (White Theme)
+  console.log('Dispatching Template 1: Waitlist Confirmation (White Theme)...');
+  const t1 = await sendEmail({
+    to: targetEmail,
+    subject: "🌱 You're on the TerraFlow waitlist [Template 1 — White Theme]",
+    html: renderWaitlistConfirmationHtml({
+      email: targetEmail,
+      firstName: 'Shamanth',
+    })
+  });
+  console.log('Template 1 Result:', t1.status, JSON.stringify(t1.data));
 
-  try {
-    const { Resend } = await import('resend');
-    const resend = new Resend(resendApiKey);
+  // Small delay between sends to respect rate limits
+  await new Promise(r => setTimeout(r, 1200));
 
-    const { error } = await resend.emails.send({
-      from: fromEmail,
-      to: [email],
-      subject: 'Inquiry Received — TerraFlow Architecture Advisory',
-      html: renderContactVisitorConfirmationHtml({ email, company, message }),
-    });
+  // 2. Template 2 (White Theme)
+  console.log('\nDispatching Template 2: Consultation & Architecture Inquiry Receipt (White Theme)...');
+  const t2 = await sendEmail({
+    to: targetEmail,
+    subject: "🏛️ Inquiry Received — TerraFlow Architecture Advisory [Template 2 — White Theme]",
+    html: renderContactVisitorConfirmationHtml({
+      email: targetEmail,
+      company: 'Apex Residential Realty',
+      message: 'Looking to integrate autonomous lead qualification across our 45 brokerage agents and connect directly with our CRM.',
+    })
+  });
+  console.log('Template 2 Result:', t2.status, JSON.stringify(t2.data));
 
-    if (error) {
-      console.error('[Terraflow Contact Email] Resend error (Visitor):', error);
-      return { success: false, error: error.message };
-    }
+  await new Promise(r => setTimeout(r, 1200));
 
-    return { success: true };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Unknown visitor email error';
-    console.error('[Terraflow Contact Email] Exception:', msg);
-    return { success: false, error: msg };
-  }
+  // 3. Template 3 (Dark Theme)
+  console.log('\nDispatching Template 3: High-Value Inbound Team Notification (Dark Theme)...');
+  const t3 = await sendEmail({
+    to: targetEmail,
+    subject: "🔥 High-Intent Inbound: Apex Residential Realty [Template 3 — Dark Theme]",
+    html: renderContactNotificationHtml({
+      email: 'lead.alex@apexrealty.com',
+      company: 'Apex Residential Realty Group',
+      message: 'Managing 120+ property inquiries daily. Need instant AI lead scoring, WhatsApp integration, and automated calendar routing for high-ticket buyers.',
+      source: 'website-act-vi-conversation',
+      timestamp: new Date().toISOString(),
+    })
+  });
+  console.log('Template 3 Result:', t3.status, JSON.stringify(t3.data));
+
+  console.log('\n========================================');
+  console.log('ALL 3 TEMPLATES DISPATCHED SUCCESSFULLY!');
+  console.log('========================================\n');
 }
 
-/**
- * Dispatches Template 3: High-Value Inbound Team Notification (Dark Theme)
- */
-export async function sendContactNotificationEmail({
-  email,
-  company,
-  message,
-  source = 'website-act-vi-conversation',
-  timestamp = new Date().toISOString(),
-}: SendContactNotificationParams): Promise<{ success: boolean; error?: string }> {
-  const resendApiKey = process.env.RESEND_API_KEY;
-  const teamEmail = process.env.TEAM_NOTIFICATION_EMAIL || process.env.RESEND_FROM_EMAIL || 'team@terraflow.ai';
-  const fromEmail = process.env.RESEND_FROM_EMAIL || 'Terraflow Inquiries <onboarding@resend.dev>';
-
-  if (!resendApiKey) {
-    console.log('[Terraflow Email Mock] RESEND_API_KEY not set. Simulated team notification:', { email, company });
-    return { success: true };
-  }
-
-  try {
-    const { Resend } = await import('resend');
-    const resend = new Resend(resendApiKey);
-
-    const { error } = await resend.emails.send({
-      from: fromEmail,
-      to: [teamEmail],
-      subject: `🔥 High-Intent Inbound: ${company || email}`,
-      html: renderContactNotificationHtml({ email, company, message, source, timestamp }),
-    });
-
-    if (error) {
-      console.error('[Terraflow Contact Email] Resend error (Team):', error);
-      return { success: false, error: error.message };
-    }
-
-    return { success: true };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Unknown team email error';
-    console.error('[Terraflow Contact Email] Exception:', msg);
-    return { success: false, error: msg };
-  }
-}
+main().catch(console.error);

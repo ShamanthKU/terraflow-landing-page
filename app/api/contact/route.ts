@@ -153,6 +153,7 @@ export async function POST(request: NextRequest) {
     sendContactVisitorConfirmationEmail({
       email,
       company,
+      message,
     }).catch((err) => {
       console.error('[Terraflow Contact] Error sending visitor confirmation:', err);
     });
